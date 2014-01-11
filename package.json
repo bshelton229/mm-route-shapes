@@ -1,0 +1,11 @@
+{
+  "name": "mm-route-shapes",
+  "version": "0.0.1",
+  "description": "Madison Metro Shapes example",
+  "license": "BSD-2-Clause",
+  "devDependencies": {
+    "csv": "~0.3.6",
+    "underscore": "~1.5.2",
+    "async": "~0.2.9"
+  }
+}
