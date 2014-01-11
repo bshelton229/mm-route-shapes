@@ -1,30 +1,11 @@
 var fs = require('fs'),
     _ = require('underscore'),
-    async = require("async"),
-    csv = require('csv');
+    read_csv = require(__dirname+'/lib/read_csv_files');
 
-
-// Grab certain tables
-var getData = function(cb) {
-  async.map(['routes.txt', 'shapes.txt', 'trips.txt'], readCsv, function(err, res) {
-    out = {};
-    _.each(res, function(i) {
-      out[i.filename] = i.data;
-    });
-    cb(out);
-  });
-}
-
-var readCsv = function(filename, cb) {
-  csv().from.path(__dirname+'/gtfs/'+filename, {columns: true}).to.array(function(data) {
-    cb(null, {filename: filename, data: data});
-  });
-}
-
-getData(function(data) {
-  var trips = data['trips.txt'],
-      routes = data['routes.txt'],
-      shapes = data['shapes.txt'],
+read_csv(['routes', 'shapes', 'trips'], function(data) {
+  var trips = data['trips'],
+      routes = data['routes'],
+      shapes = data['shapes'],
       shape_geojson = {},
       route_shapes = {};
 
@@ -60,8 +41,8 @@ getData(function(data) {
     features.push(shape_geojson[trip.shape_id]);
   });
 
+  // Write out each route's geoJSON FeatureCollection to its own file
   _.each(route_shapes, function(route_shape, route_name) {
     fs.writeFileSync(__dirname+'/route_shapes/'+route_name+'.geojson', JSON.stringify(route_shape));
   });
-  // fs.writeFileSync(__dirname+'/81.json', JSON.stringify(route_shapes['81']));
 });
