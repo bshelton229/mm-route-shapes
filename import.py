@@ -1,10 +1,25 @@
 import csv
 import json
+import psycopg2
 from shapely.geometry import LineString, mapping, shape
 from shapely.ops import linemerge, unary_union
+from shapely.wkt import dumps, loads
+
+# Set up
 shapes = {}
 trip_shapes = {}
 routes = {}
+
+try:
+    conn = psycopg2.connect("dbname='mm_routes'")
+except:
+    print "I am unable to connect to the database"
+
+# Cursor for the db
+cur = conn.cursor()
+# Clear out, don't worry about updating, it's like a cache
+cur.execute("DELETE FROM shapes")
+conn.commit()
 
 # Parse shapes into a dict
 with open('gtfs/shapes.txt') as f:
@@ -32,21 +47,24 @@ with open('gtfs/routes.txt') as f:
 # Write out merged Linestrings for each route
 for trip_name, shapes in trip_shapes.items():
     route = routes[trip_name]
-    lines = []
-    for k,v in shapes.items():
-      line = LineString(v)
-      lines.append(line)
+    for shape_id, points in shapes.items():
+      line = LineString(points)
+      # Insert into the database
+      cur.execute("INSERT INTO shapes (name, geom) VALUES(%s, ST_GeomFromText(%s, 4326))", (trip_name, dumps(line)))
 
-    merged_line = linemerge(lines)
-    
-    # Map to a Geojson like object
-    geojson = mapping(merged_line)
-    geojson['properties'] = {
-      'color': '#'+route['route_color'],
-      'name': route['route_short_name'],
-      'description': route['route_desc']
-    }
+# Write the inserts
+conn.commit()
 
-    # Write to disk
-    with open('route_shapes/'+trip_name+'.geojson', 'w+') as f:
-      f.write(json.dumps(geojson))
+# Let PostGIS do the linestring merge
+cur.execute("SELECT name, ST_AsGeoJSON(ST_LineMerge(ST_UNION(geom))) as geojson FROM shapes GROUP BY name ORDER BY name ASC")
+
+for row in cur.fetchall():
+  route_name, raw_json = row
+  route = routes[route_name]
+  geojson = json.loads(raw_json)
+  
+  # Write to disk
+  with open('route_shapes/'+route_name+'.geojson', 'w+') as f:
+    f.write(json.dumps(geojson))
+
+conn.close()
