@@ -29,6 +29,6 @@ for trip_name, shapes in trip_shapes.items():
       line = LineString(v)
       lines.append(line)
 
-    merged_line = unary_union(lines)
+    merged_line = linemerge(lines)
     with open('route_shapes/'+trip_name+'.geojson', 'w+') as f:
       f.write(json.dumps(mapping(merged_line)))
